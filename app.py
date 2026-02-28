@@ -6,11 +6,23 @@ import io
 
 st.set_page_config(page_title="Pro Group Mixer", layout="wide")
 
-# --- 1. CSS for Visual Colors ---
+# --- 1. CSS for Correct Visual Colors (Green for Favs, Red for KAs) ---
 st.markdown("""
     <style>
-    .fav-box div[data-baseweb="tag"] { background-color: #28a745 !important; color: white !important; }
-    .ka-box div[data-baseweb="tag"] { background-color: #dc3545 !important; color: white !important; }
+    /* Specific styling for the Favorites (Green) */
+    div[data-testid="stFormSubmitButton"] + div, .fav-box div[data-baseweb="tag"] {
+        background-color: #28a745 !important;
+        color: white !important;
+    }
+    /* Specific styling for the Keep Aparts (Red) */
+    .ka-box div[data-baseweb="tag"] {
+        background-color: #dc3545 !important;
+        color: white !important;
+    }
+    /* General tag text color fix */
+    div[data-baseweb="tag"] span {
+        color: white !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -20,7 +32,6 @@ if 'students' not in st.session_state:
 # --- 2. Custom Title & Instructions ---
 st.title("👥 Pro Group Mixer by David Naughton")
 
-# Instructions Link
 instructions_url = "https://github.com/Sadsfan/Pro-Group-Maker/blob/main/instructions.md"
 st.markdown(
     f"""
@@ -48,7 +59,12 @@ st.markdown(
 with st.sidebar:
     st.header("⚙️ Mixing Settings")
     num_groups = st.number_input("Number of Groups", min_value=2, value=3)
-    max_favs_per_group = st.slider("Max Favorites allowed per group", 1, 5, 2)
+    
+    # Updated help text to reflect your correct presumption
+    max_favs_per_group = st.slider(
+        "Max Favorites allowed per group", 1, 5, 2, 
+        help="Limits how many 'successful pairings' occur in one group. Set to 1 to spread friendships across all groups."
+    )
     
     st.write("---")
     if st.session_state.students:
@@ -69,16 +85,9 @@ with col_lim2:
 
 # --- 5. Data Input ---
 with st.expander("📥 Step 1: Add Students", expanded=True):
-    st.info("💡 Download the template below to ensure your CSV matches the required format.")
-    
     template_df = pd.DataFrame(columns=["Name", "Gender", "Favorites", "Keep_Apart"])
     template_csv = template_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="📄 Download CSV Template",
-        data=template_csv,
-        file_name="student_template.csv",
-        mime="text/csv",
-    )
+    st.download_button("📄 Download CSV Template", template_csv, "student_template.csv", "text/csv")
     
     st.write("---")
     c1, c2 = st.columns(2)
@@ -90,7 +99,6 @@ with st.expander("📥 Step 1: Add Students", expanded=True):
             try:
                 df = pd.read_csv(up)
                 df.columns = df.columns.str.strip()
-                
                 def parse_csv_list(val):
                     if pd.isna(val) or str(val).strip() == "": return []
                     raw = str(val).replace("[", "").replace("]", "").replace("'", "").replace('"', "")
@@ -105,22 +113,18 @@ with st.expander("📥 Step 1: Add Students", expanded=True):
                             "Favorites": parse_csv_list(row.get('Favorites', ''))[:limit_select_fav],
                             "Keep_Apart": parse_csv_list(row.get('Keep_Apart', ''))[:limit_select_ka]
                         })
-                st.success("CSV Processed!")
                 st.rerun()
             except Exception as e:
-                st.error(f"Processing Error: {e}")
+                st.error(f"Error: {e}")
 
     with c2:
         st.subheader("Manual Add")
-        with st.form("manual_add_form", clear_on_submit=True):
+        with st.form("manual_add", clear_on_submit=True):
             n = st.text_input("Name")
             g = st.selectbox("Gender", ["M", "F", "Other"])
-            if st.form_submit_button("Add Student"):
-                if n and not any(s['Name'] == n.strip() for s in st.session_state.students):
-                    st.session_state.students.append({
-                        "Name": n.strip(), "Gender": g[:1], "Favorites": [], "Keep_Apart": []
-                    })
-                    st.rerun()
+            if st.form_submit_button("Add Student") and n:
+                st.session_state.students.append({"Name": n.strip(), "Gender": g[:1], "Favorites": [], "Keep_Apart": []})
+                st.rerun()
 
 # --- 6. Relationship Editor ---
 if st.session_state.students:
@@ -133,6 +137,7 @@ if st.session_state.students:
         with edit_cols[i % 3]:
             with st.container(border=True):
                 st.markdown(f"**{student['Name']}** ({student['Gender']})")
+                
                 st.markdown("<div class='fav-box'>", unsafe_allow_html=True)
                 st.session_state.students[i]['Favorites'] = st.multiselect(
                     f"⭐ Likes (Max {limit_select_fav})", all_names, 
@@ -176,7 +181,12 @@ if st.button("🎲 Generate Groups (Strict Separation)"):
                 fav_in = sum(1 for f in child['Favorites'] if f in names_in_group)
                 for m in group:
                     if child['Name'] in m['Favorites']: fav_in += 1
-                score += (fav_in * 100) if fav_in <= max_favs_per_group else -500
+                
+                # Apply the "per group" limit
+                if fav_in > max_favs_per_group:
+                    score -= 500
+                else:
+                    score += (fav_in * 100)
                 
                 score -= (len(group) * 20)
                 score -= (sum(1 for p in group if p['Gender'] == child['Gender']) * 5)
@@ -190,22 +200,17 @@ if st.button("🎲 Generate Groups (Strict Separation)"):
         final_list = []
         conflicts = []
         res_cols = st.columns(num_groups)
-        
         for idx, g in enumerate(groups):
-            group_id = idx + 1
-            group_names = [p['Name'] for p in g]
             with res_cols[idx]:
-                st.success(f"Group {group_id}")
+                st.success(f"Group {idx+1}")
                 st.caption(f"👦 {sum(1 for p in g if p['Gender']=='M')} | 👧 {sum(1 for p in g if p['Gender']=='F')}")
                 for p in g:
                     st.write(f"• **{p['Name']}**")
                     for ka in p['Keep_Apart']:
-                        if ka in group_names:
-                            conflicts.append(f"⚠️ {p['Name']} & {ka} (Group {group_id})")
+                        if ka in [m['Name'] for m in g]:
+                            conflicts.append(f"⚠️ {p['Name']} & {ka} (Group {idx+1})")
                     p_out = p.copy()
-                    p_out['Assigned_Group'] = group_id
-                    p_out['Favorites'] = ", ".join(p['Favorites'])
-                    p_out['Keep_Apart'] = ", ".join(p['Keep_Apart'])
+                    p_out['Assigned_Group'] = idx + 1
                     final_list.append(p_out)
 
         if conflicts:
@@ -219,9 +224,4 @@ if st.button("🎲 Generate Groups (Strict Separation)"):
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
             df_results.to_excel(writer, index=False, sheet_name='Groups')
         
-        st.download_button(
-            label="📊 Download Groups as Excel",
-            data=buffer.getvalue(),
-            file_name="mixed_groups.xlsx",
-            mime="application/vnd.ms-excel"
-        )
+        st.download_button("📊 Download Groups as Excel", buffer.getvalue(), "mixed_groups.xlsx", "application/vnd.ms-excel")
