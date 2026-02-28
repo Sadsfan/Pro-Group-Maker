@@ -33,6 +33,37 @@ with st.sidebar:
     if st.button("🗑️ Clear All Names"):
         st.session_state.students = []
         st.rerun()
+        # ... (previous imports and CSS)
+
+st.title("👥 Pro Group Mixer")
+
+# --- Instructions "Button" (Opens in New Tab) ---
+# Replace YOUR_GITHUB_URL with the actual link to your instructions.md file
+instructions_url = "https://github.com/Sadsfan/Pro-Group-Maker/blob/main/instructions.md"
+
+st.markdown(
+    f"""
+    <a href="{instructions_url}" target="_blank">
+        <button style="
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 20px;
+        ">
+            📖 View Instructions
+        </button>
+    </a>
+    """,
+    unsafe_allow_html=True
+)
+
+# ... (rest of your app code)
 
 # --- 3. Entry Limits ---
 st.subheader("🛠️ Entry Limits")
