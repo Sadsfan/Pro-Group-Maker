@@ -76,88 +76,114 @@ with st.expander("📥 Step 1: Add Students", expanded=False):
                 st.session_state.students.append({"Name": n, "Gender": g[:1], "Favorites": [], "Keep_Apart": []})
                 st.rerun()
 
-# --- 5. Relationship Editor (Matches Screenshot Layout) ---
-if st.session_state.students:
-    st.write("---")
-    st.subheader("🔗 Relationship Dashboard")
-    all_names = [s['Name'] for s in st.session_state.students]
-    
-    edit_cols = st.columns(3)
-    for i, student in enumerate(st.session_state.students):
-        with edit_cols[i % 3]:
-            with st.container(border=True):
-                st.markdown(f"**{student['Name']}** ({student['Gender']})")
-                
-                st.markdown("<div class='fav-box'>", unsafe_allow_html=True)
-                st.session_state.students[i]['Favorites'] = st.multiselect(
-                    f"⭐ Likes (Max {limit_select_fav})", all_names, 
-                    default=[f for f in student['Favorites'] if f in all_names], 
-                    key=f"fav_{student['Name']}", max_selections=limit_select_fav
-                )
-                st.markdown("</div>", unsafe_allow_html=True)
-                
-                st.markdown("<div class='ka-box'>", unsafe_allow_html=True)
-                st.session_state.students[i]['Keep_Apart'] = st.multiselect(
-                    f"🚫 Avoids (Max {limit_select_ka})", all_names, 
-                    default=[k for k in student['Keep_Apart'] if k in all_names], 
-                    key=f"ka_{student['Name']}", max_selections=limit_select_ka
-                )
-                st.markdown("</div>", unsafe_allow_html=True)
-
-# --- 6. Mixing Engine & Excel Export ---
-if st.button("🎲 Generate Balanced Groups"):
+# --- 5. The Rules-First Sorting Engine ---
+if st.button("🎲 Generate Groups (Strict Separation)"):
     if len(st.session_state.students) < num_groups:
         st.error("Not enough students!")
     else:
-        # (Mixing logic remains optimized for balance and constraints)
         students = list(st.session_state.students)
         random.shuffle(students)
         groups = [[] for _ in range(num_groups)]
+        
+        # Calculate hard ceiling for size balance
         max_cap = (len(students) // num_groups) + (1 if len(students) % num_groups != 0 else 0)
-        students.sort(key=lambda s: len(s['Keep_Apart']) + len(s['Favorites']), reverse=True)
+
+        # CRITICAL CHANGE: Sort by Keep_Apart count FIRST. 
+        # We must place the "difficult" students while groups are empty.
+        students.sort(key=lambda s: len(s['Keep_Apart']), reverse=True)
 
         for child in students:
             best_idx, best_score = -1, -float('inf')
+            
             for idx, group in enumerate(groups):
                 if len(group) >= max_cap: continue
+                
                 names = [p['Name'] for p in group]
                 score = 0
                 
-                # Rule Weighting
-                ka_in = sum(1 for ka in child['Keep_Apart'] if ka in names)
+                # 1. 🚫 STRICT KEEP APART PENALTY (Highest Weight)
+                # We use a massive penalty (-5000) so it overrides everything else.
+                ka_violations = sum(1 for ka in child['Keep_Apart'] if ka in names)
                 for m in group:
-                    if child['Name'] in m['Keep_Apart']: ka_in += 1
-                if ka_in > allow_ka_per_group: score -= 1000
+                    if child['Name'] in m['Keep_Apart']: 
+                        ka_violations += 1
                 
+                score -= (ka_violations * 5000) 
+                
+                # 2. ⭐ FAVORITES BONUS
                 fav_in = sum(1 for f in child['Favorites'] if f in names)
                 for m in group:
-                    if child['Name'] in m['Favorites']: fav_in += 1
-                if fav_in > max_favs_per_group: score -= 500
-                else: score += (fav_in * 50)
+                    if child['Name'] in m['Favorites']: 
+                        fav_in += 1
+                score += (fav_in * 50)
                 
-                score -= (sum(1 for p in group if p['Gender'] == child['Gender']) * 10)
-                score -= (len(group) * 5)
+                # 3. ⚖️ SIZE BALANCE (Secondary Priority)
+                score -= (len(group) * 10)
                 
+                # 4. 👦/👧 GENDER BALANCE (Lowest Priority)
+                # Reduced from 10 to 2 to make it less influential than rules.
+                g_match = sum(1 for p in group if p['Gender'] == child['Gender'])
+                score -= (g_match * 2) 
+
                 if score > best_score:
                     best_score, best_idx = score, idx
+            
+            # If no group is "good," it will still pick the one with the least-bad score
             groups[best_idx].append(child)
 
-        # --- Results Display ---
+        # --- 6. Results Display & Conflict Audit ---
         st.write("---")
+        st.subheader("🏁 Final Groups & Audit")
+        
         final_list = []
+        conflicts = []
+        
         res_cols = st.columns(num_groups)
         for idx, g in enumerate(groups):
+            group_id = idx + 1
+            group_names = [p['Name'] for p in g]
+            
             with res_cols[idx]:
-                st.success(f"Group {idx+1}")
+                st.success(f"Group {group_id}")
                 m_c = sum(1 for p in g if p['Gender'] == 'M')
                 f_c = sum(1 for p in g if p['Gender'] == 'F')
-                st.caption(f"👦 {m_c} | 👧 {f_c}")
+                st.caption(f"👦 {m_c} | 👧 {f_c} | Total: {len(g)}")
+                
                 for p in g:
                     st.write(f"• **{p['Name']}**")
-                    p['Assigned_Group'] = idx + 1
-                    final_list.append(p)
+                    
+                    # Audit Keep Aparts
+                    for ka in p['Keep_Apart']:
+                        if ka in group_names:
+                            conflicts.append(f"⚠️ **Keep Apart Violation**: {p['Name']} and {ka} are both in Group {group_id}")
+                    
+                    # Audit Favorites (Optional: Flag if a friend was lost)
+                    has_fav = False
+                    for fav in p['Favorites']:
+                        if fav in group_names:
+                            has_fav = True
+                    if p['Favorites'] and not has_fav:
+                        # We don't call this a 'violation', just a 'note'
+                        pass 
 
-        # --- Excel Download Button ---
+                    # Prep for Excel
+                    p_out = p.copy()
+                    p_out['Assigned_Group'] = group_id
+                    # Clean up list formatting for Excel readability
+                    p_out['Favorites'] = ", ".join(p['Favorites'])
+                    p_out['Keep_Apart'] = ", ".join(p['Keep_Apart'])
+                    final_list.append(p_out)
+
+        # --- Display Audit Results ---
+        if conflicts:
+            st.warning("### 🔍 Conflict Audit")
+            for c in conflicts:
+                st.write(c)
+        else:
+            st.balloons()
+            st.success("✅ **Perfect Separation!** All 'Keep Apart' rules were respected.")
+
+        # --- 7. Excel Export ---
         df_results = pd.DataFrame(final_list)
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
