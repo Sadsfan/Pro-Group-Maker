@@ -13,6 +13,16 @@ Welcome to the Pro Group Mixer! This tool helps you create balanced, manageable 
 
     Manual Add: If you prefer, you can add students one-by-one using the "Manual Add" form.
 
+    Scroll down to the list of names. Here, you can add/edit favourites and keep aparts.
+
+    Setting the Groups: In the left sidebar, you can set the number of groups and the maximum number of people per group.
+
+    Generating Groups: Scroll down to below the list of names and click the Generate Groups button. If you are not happy with the groups, you can click      the Generate Groups button to shuffle the groups.
+
+    Exporting Groups: Below the list of groups, you can download your groups as an spreadsheet and as a pdf.
+
+    Saving Your data: If you need to save your data because you have added new favourites or keep aparts, click Save Configuration(.json) or Export CSV.
+
 🧠 How "The Brain" Works
 
 The app uses a Priority Ladder to make decisions. It doesn't just shuffle names; it looks at every possible group for a student and picks the one with the highest "Compatibility Score."
