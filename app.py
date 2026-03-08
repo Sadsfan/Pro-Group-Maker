@@ -33,32 +33,40 @@ st.markdown(f'<a href="{instructions_url}" target="_blank"><button style="backgr
 with st.sidebar:
     st.header("⚙️ Mixing Settings")
     
+    # Sidebar Summary
+    if st.session_state.students:
+        boys = sum(1 for s in st.session_state.students if s['Gender'] == 'M')
+        girls = sum(1 for s in st.session_state.students if s['Gender'] == 'F')
+        st.write(f"**Total Students:** {len(st.session_state.students)}")
+        st.write(f"👦 Boys: {boys} | 👧 Girls: {girls}")
+        st.write("---")
+    
     if st.button("🔄 Reset to Defaults"):
         st.session_state.num_groups = 3
         st.session_state.max_favs = 2
         st.rerun()
 
-    num_groups = st.number_input("Number of Groups", min_value=2, value=st.session_state.num_groups)
-    
-    max_favs_per_group = st.slider(
-        "🤝 Clique Control (Max friends per group)", 
-        1, 5, st.session_state.max_favs,
-        help="Limits how many 'Favorite' connections one child can have in their group."
-    )
-
-    # Dynamic Explanation
-    if max_favs_per_group == 1:
-        st.info("**Mode: Spread Out.** Every child gets at most **one** friend. Best for management.")
-    elif max_favs_per_group == 2:
-        st.info("**Mode: Balanced.** Allows pairs of friends to stay together.")
-    else:
-        st.warning(f"**Mode: Social Clusters.** Up to **{max_favs_per_group}** friends can stay together.")
-
+    # --- Manage Data (Now correctly inside sidebar) ---
     st.write("---")
+    st.subheader("💾 Manage Data")
+    
+    # Note: Streamlit buttons trigger a rerun. 
+    # To download, we use a download_button directly.
     if st.session_state.students:
+        df_save = pd.DataFrame(st.session_state.students)
+        csv_data = df_save.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Export Data to CSV", csv_data, "classroom_data.csv", "text/csv")
+        
         js = json.dumps(st.session_state.students)
         st.download_button("💾 Save Config (.json)", js, "mixer_config.json")
+
+    st.write("---")
+    num_groups = st.number_input("Number of Groups", min_value=2, value=st.session_state.num_groups)
+    max_size_limit = st.slider("📏 Strict Group Size Limit", 1, max(1, len(st.session_state.students)), 30)
     
+    max_favs_per_group = st.slider("🤝 Clique Control", 1, 5, st.session_state.max_favs)
+
+    st.write("---")
     if st.button("🗑️ Clear All Names", type="primary"):
         st.session_state.students = []
         if 'final_groups' in st.session_state: del st.session_state.final_groups
@@ -135,9 +143,14 @@ if st.session_state.students:
 
 # --- 6. GENERATOR LOGIC ---
 if st.button("🎲 Generate Groups", type="primary"):
-    if len(st.session_state.students) < num_groups:
-        st.error("Not enough students for that many groups!")
+    # Use the sidebar limit directly
+    hard_max = max_size_limit 
+    
+    # Check if the total number of students can actually fit into the groups
+    if len(st.session_state.students) > (hard_max * num_groups):
+        st.error(f"⚠️ Not enough groups! {len(st.session_state.students)} students cannot fit into {num_groups} groups with a limit of {hard_max}.")
     else:
+        # ... (rest of your logic remains the same) ...
         students = list(st.session_state.students)
         random.shuffle(students)
         groups = [[] for _ in range(num_groups)]
@@ -212,36 +225,33 @@ if 'final_groups' in st.session_state:
             gn = st.session_state.group_names.get(idx, f"Group {idx+1}")
             st.success(f"### {gn}")
             
-            # --- Restoration of the Summary Line ---
             boys = sum(1 for p in g if p['Gender'] == 'M')
             girls = sum(1 for p in g if p['Gender'] == 'F')
             send_count = sum(1 for p in g if p['SEND'])
             st.caption(f"👦 {boys} | 👧 {girls} | 🧩 SEND: {send_count}")
             
             for p in g:
-                st.write(f"• {p['Name']}")
+                gender_icon = "👦" if p['Gender'] == 'M' else "👧"
+                send_marker = " 🧩" if p['SEND'] else ""
+                st.write(f"• {p['Name']} {gender_icon}{send_marker}")
 
-    # 3. Export Section (Buttons now guaranteed to show)
+    # 3. Export Section
     st.write("---")
     st.subheader("📥 Export Your Groups")
-    
     d1, d2 = st.columns(2)
     
-    # Excel Logic
     with d1:
         clean_data = []
         for idx, g in enumerate(st.session_state.final_groups):
             gn = st.session_state.group_names.get(idx, f"Group {idx+1}")
             for p in g:
-                clean_data.append({"Group Name": gn, "Student Name": p['Name'], "SEND": "Yes" if p['SEND'] else "No"})
-        
+                clean_data.append({"Group Name": gn, "Student Name": p['Name'], "Gender": p['Gender'], "SEND": "Yes" if p['SEND'] else "No"})
         excel_buffer = io.BytesIO()
         pd.DataFrame(clean_data).to_excel(excel_buffer, index=False)
         st.download_button("📊 Download Excel", excel_buffer.getvalue(), "groups.xlsx")
 
-    # PDF Logic (Ensure 'letter' is imported locally or globally)
     with d2:
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
         from reportlab.lib import colors
         from reportlab.lib.styles import getSampleStyleSheet
         from reportlab.lib.pagesizes import letter
@@ -249,23 +259,30 @@ if 'final_groups' in st.session_state:
         pdf_buffer = io.BytesIO()
         doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
         styles = getSampleStyleSheet()
-        elements = [Paragraph("Classroom Group Assignments", styles['Title'])]
+        elements = [Paragraph("Classroom Group Assignments", styles['Title']), Spacer(1, 12)]
         
         num_groups = len(st.session_state.final_groups)
         max_rows = max([len(g) for g in st.session_state.final_groups], default=0)
         
+        # Build Table Data
         table_data = [[st.session_state.group_names.get(i, f"Group {i+1}") for i in range(num_groups)]]
         for r in range(max_rows):
             row = []
             for g in st.session_state.final_groups:
-                row.append(g[r]['Name'] if r < len(g) else "")
+                p = g[r]
+                row.append(f"{p['Name']} ({p['Gender']}{'/' + 'S' if p['SEND'] else ''})") if r < len(g) else row.append("")
             table_data.append(row)
+        
+        # Add Totals Row
+        totals = ["Boys: " + str(sum(1 for p in g if p['Gender']=='M')) + " | Girls: " + str(sum(1 for p in g if p['Gender']=='F')) + " | SEND: " + str(sum(1 for p in g if p['SEND'])) for g in st.session_state.final_groups]
+        table_data.append(totals)
             
         t = Table(table_data)
         t.setStyle(TableStyle([
-            ('GRID', (0,0), (-1,-1), 1, colors.black), 
+            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+            ('BACKGROUND', (0,-1), (-1,-1), colors.lightgrey), # Highlight totals row
+            ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold')
         ]))
         elements.append(t)
         doc.build(elements)
