@@ -1,47 +1,48 @@
-# 🚀 Pro Group Mixer: User Guide & How It Works
+📖 Pro Group Mixer: User Guide
 
-Welcome to the Pro Group Mixer! This tool is designed to take the headache out of classroom sorting by balancing gender and respecting social dynamics.
+Welcome to the Pro Group Mixer! This tool helps you create balanced, manageable classroom groups while respecting student needs and friendships.
+📥 Getting Started
 
----
+    Download the Template: Click "Download CSV Template" in Step 1.
 
-## 🛠 Part 1: How to Use the App (Step-by-Step)
+    Fill the Template: Use the instructions provided in the column headers (e.g., M/F for Gender, Y/N for SEND).
 
-### 1. Add Your Students
-* **The CSV Way (Fastest):** Click **"Download CSV Template"** at the top of the app. Open it in Excel, fill in your names and genders (M/F), and save it. Upload that file into the **"Upload CSV"** box and click **"Process CSV."**
-* **The Manual Way:** Use the **"Manual Add"** form to type names and select genders one by one.
+    Upload & Process: * Upload your file using the "Upload CSV" box.
 
-### 2. Define Relationships
-Once your students appear in the **Relationship Dashboard**:
-* **⭐ Likes:** Select the students this person *wants* to be with. The app treats these as "bonuses" to aim for.
-* **🚫 Avoids:** Select the students this person *must not* be with. The app treats these as "deal-breakers."
+        Crucial Step: You MUST click the "Process CSV" button to load the students into the app.
 
-### 3. Configure Your Mix
-On the left sidebar, set your **Number of Groups**.
-* **Max Favourites per group:** Use this slider to prevent "super-cliques." If set to 1, the app tries to give everyone *one* friend but spreads the rest of the friend group out to other tables.
+    Manual Add: If you prefer, you can add students one-by-one using the "Manual Add" form.
 
-### 4. Generate & Export
-Click **"Generate Groups."**
-* **Conflict Audit:** If the app displays a warning at the bottom, it means a "Keep Apart" rule was mathematically impossible to follow.
-* **Download:** If you are happy with the results, click **"Download Excel"** to save your final list.
+🧠 How "The Brain" Works
 
----
+The app uses a Priority Ladder to make decisions. It doesn't just shuffle names; it looks at every possible group for a student and picks the one with the highest "Compatibility Score."
 
-## 🧠 Part 2: How the "Brain" Works (The Logic)
+    Safety First (Keep Aparts): This is the highest priority. The app would rather make a group slightly uneven than put two "Keep Apart" students together.
 
-The mixer doesn't just "shuffle" names; it uses a **Weighted Priority Algorithm** to find the best possible fit for every student.
+    Equity (SEND Balance): The app counts how many SEND students are already in a group. It naturally favors empty groups to spread support needs evenly.
 
-### The Scoring System
-Every time you click generate, the "Brain" looks at every available group and calculates a score for a student based on these rules:
+    Happiness (Favorites): The app looks for "Likes." If a student is placed with a friend, the score goes up.
 
-| Rule | Impact on Score | Purpose |
-| :--- | :--- | :--- |
-| **Keep Apart Violation** | **-10,000 points** | Avoids these pairings at almost any cost. |
-| **Favorite Found** | **+100 points** | Tries to keep friends together where possible. |
-| **Group Size** | **-20 points** | Ensures groups stay even (e.g., no groups of 2 vs groups of 6). |
-| **Gender Balance** | **-5 points** | Subtracts points for every same-gender student already in the group to encourage a mix. |
+    Demographics: Finally, it balances gender ratios and total group size.
 
+🛠️ Key Features
 
+    🤝 Clique Control: Limits how many "Favorite" connections can exist in a single group.
 
-### The Placement Process
-1.  **Constraint First:** The app identifies students with the most "Avoid" rules and places them first, as they are the hardest to fit.
-2.  **Best Fit:** For every other student, the app calculates the scores for all groups and places the student in the group with the **highest total score**.
+        Set to 1 (Spread Out): Best for breaking up cliques.
+
+        Set to 3+ (Social Clusters): Best for social reward activities.
+
+    🔗 Relationship Dashboard: Use the search bar to find students quickly. Use the toggles to update SEND status or relationships without needing to re-upload your file.
+
+    🖨️ Printing & Exporting:
+
+        Edit Group Names: Click "Edit Group Names" to give your groups friendly titles (e.g., "The Lions").
+
+        Print Mode: Check "Prepare for Printing" to hide all app controls for a clean, professional printout.
+
+💡 Pro Tips
+
+    Keep Aparts are Mandatory: If you have too many "Keep Aparts" relative to your group count, the math may break. Keep your group count high enough to give the "Brain" room to work!
+
+    Resetting: Don't be afraid to experiment with settings; the "Reset to Defaults" button is always there if you want to start fresh.
