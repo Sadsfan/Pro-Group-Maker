@@ -37,7 +37,7 @@ with st.sidebar:
     if st.session_state.students:
         boys = sum(1 for s in st.session_state.students if s['Gender'] == 'M')
         girls = sum(1 for s in st.session_state.students if s['Gender'] == 'F')
-        st.write(f"**Total Students:** {len(st.session_state.students)}")
+        st.write(f"**Total Pupils:** {len(st.session_state.students)}")
         st.write(f"👦 Boys: {boys} | 👧 Girls: {girls}")
         st.write("---")
     
@@ -46,28 +46,36 @@ with st.sidebar:
         st.session_state.max_favs = 2
         st.rerun()
 
-    # --- Manage Data (Now correctly inside sidebar) ---
+    # Manage Data
     st.write("---")
-    st.subheader("💾 Manage Data")
-    
-    # Note: Streamlit buttons trigger a rerun. 
-    # To download, we use a download_button directly.
+    st.subheader("💾 Organise Data")
     if st.session_state.students:
         df_save = pd.DataFrame(st.session_state.students)
         csv_data = df_save.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Export Data to CSV", csv_data, "classroom_data.csv", "text/csv")
+        st.download_button("📥 Export Data to CSV", csv_data, "pupil_data.csv", "text/csv")
         
         js = json.dumps(st.session_state.students)
-        st.download_button("💾 Save Config (.json)", js, "mixer_config.json")
+        st.download_button("💾 Save Configuration (.json)", js, "mixer_config.json")
 
     st.write("---")
     num_groups = st.number_input("Number of Groups", min_value=2, value=st.session_state.num_groups)
-    max_size_limit = st.slider("📏 Strict Group Size Limit", 1, max(1, len(st.session_state.students)), 30)
     
-    max_favs_per_group = st.slider("🤝 Clique Control", 1, 5, st.session_state.max_favs)
+    # Ensuring max_size_limit doesn't error when empty
+    limit_val = max(1, len(st.session_state.students)) if st.session_state.students else 50
+    max_size_limit = st.slider("📏 Strict Group Size Limit", 1, limit_val, min(50, limit_val))
+    
+    max_favs_per_group = st.slider("🤝 Clique Control (Max friends per group)", 1, 5, st.session_state.max_favs)
+
+    # Dynamic Explanation
+    if max_favs_per_group == 1:
+        st.info("**Mode: Spread Out.** Every pupil gets at most **one** friend. Best for behaviour management.")
+    elif max_favs_per_group == 2:
+        st.info("**Mode: Balanced.** Allows pairs of friends to stay together.")
+    else:
+        st.warning(f"**Mode: Social Clusters.** Up to **{max_favs_per_group}** friends can stay together.")
 
     st.write("---")
-    if st.button("🗑️ Clear All Names", type="primary"):
+    if st.button("🗑️ Clear All Pupils", type="primary"):
         st.session_state.students = []
         if 'final_groups' in st.session_state: del st.session_state.final_groups
         st.rerun()
@@ -76,13 +84,13 @@ with st.sidebar:
 st.subheader("🛠️ Entry Limits")
 cl1, cl2 = st.columns(2)
 with cl1:
-    limit_select_fav = st.number_input("Max Favorites per person", 1, 10, 5)
+    limit_select_fav = st.number_input("Max Favourites per person", 1, 10, 5)
 with cl2:
     limit_select_ka = st.number_input("Max Keep-Aparts per person", 1, 10, 5)
 
 with st.expander("📥 Step 1: Add Students", expanded=not bool(st.session_state.students)):
     template_df = pd.DataFrame(columns=[
-        "Name", "Gender (M/F)", "SEND (Y/N)", "Favorites (Comma Separated)", "Keep_Apart (Comma Separated)"
+        "Name", "Gender (M/F)", "SEND (Y/N)", "Favourites (Comma Separated)", "Keep_Apart (Comma Separated)"
     ])
     st.download_button("📄 Download CSV Template", template_df.to_csv(index=False).encode('utf-8'), "student_template.csv", "text/csv")
     
@@ -104,7 +112,7 @@ with st.expander("📥 Step 1: Add Students", expanded=not bool(st.session_state
                             "Name": name, 
                             "Gender": str(row.get('Gender', 'M')).strip().upper()[:1],
                             "SEND": is_send,
-                            "Favorites": pl(row.get('Favorites', ''))[:limit_select_fav],
+                            "Favourites": pl(row.get('Favourites', ''))[:limit_select_fav],
                             "Keep_Apart": pl(row.get('Keep_Apart', ''))[:limit_select_ka]
                         })
                 st.rerun()
@@ -116,7 +124,7 @@ with st.expander("📥 Step 1: Add Students", expanded=not bool(st.session_state
             g = st.selectbox("Gender", ["M", "F", "Other"])
             s_en = st.checkbox("SEND Student?")
             if st.form_submit_button("Add Student") and n:
-                st.session_state.students.append({"Name": n.strip(), "Gender": g[:1], "SEND": s_en, "Favorites": [], "Keep_Apart": []})
+                st.session_state.students.append({"Name": n.strip(), "Gender": g[:1], "SEND": s_en, "Favourites": [], "Keep_Apart": []})
                 st.rerun()
 
 # --- 5. SEARCH & RELATIONSHIP DASHBOARD ---
@@ -138,70 +146,37 @@ if st.session_state.students:
                 with st.container(border=True):
                     st.write(f"#### {student['Name']} {'(SEND)' if student['SEND'] else ''}")
                     st.session_state.students[idx]['SEND'] = st.toggle("SEND Status", value=student['SEND'], key=f"s_{idx}")
-                    st.session_state.students[idx]['Favorites'] = st.multiselect(f"⭐ Likes: {student['Name']}", all_names, default=[f for f in student['Favorites'] if f in all_names], key=f"fav_{idx}")
+                    st.session_state.students[idx]['Favourites'] = st.multiselect(f"⭐ Likes: {student['Name']}", all_names, default=[f for f in student['Favourites'] if f in all_names], key=f"fav_{idx}")
                     st.session_state.students[idx]['Keep_Apart'] = st.multiselect(f"🚫 Avoids: {student['Name']}", all_names, default=[k for k in student['Keep_Apart'] if k in all_names], key=f"ka_{idx}")
 
 # --- 6. GENERATOR LOGIC ---
 if st.button("🎲 Generate Groups", type="primary"):
-    # Use the sidebar limit directly
-    hard_max = max_size_limit 
-    
-    # Check if the total number of students can actually fit into the groups
-    if len(st.session_state.students) > (hard_max * num_groups):
-        st.error(f"⚠️ Not enough groups! {len(st.session_state.students)} students cannot fit into {num_groups} groups with a limit of {hard_max}.")
+    import math
+    if len(st.session_state.students) < num_groups:
+        st.error("Not enough pupils for that many groups!")
+    elif len(st.session_state.students) > (max_size_limit * num_groups):
+        st.error(f"⚠️ {len(st.session_state.students)} pupils cannot fit into {num_groups} groups with a limit of {max_size_limit}.")
     else:
-        # ... (rest of your logic remains the same) ...
         students = list(st.session_state.students)
         random.shuffle(students)
         groups = [[] for _ in range(num_groups)]
-        
-        # We define a "soft" max cap to keep groups balanced, 
-        # but we allow it to be ignored if necessary to place everyone.
-        soft_max = (len(students) // num_groups) + 1
-        
-        # Sort by constraints so the most "difficult" students are placed first
         students.sort(key=lambda s: (len(s['Keep_Apart']), s['SEND']), reverse=True)
 
         for child in students:
             best_idx = -1
             best_score = -float('inf')
-            
             for idx, group in enumerate(groups):
-                # We calculate score, but we don't 'continue' if full 
-                # unless the group is becoming excessively large
-                if len(group) >= soft_max + 2: continue 
-                
+                if len(group) >= max_size_limit: continue
                 names = [p['Name'] for p in group]
                 score = 0
-                
-                # Penalties
-                ka_v = sum(1 for ka in child['Keep_Apart'] if ka in names) + \
-                       sum(1 for m in group if child['Name'] in m['Keep_Apart'])
+                ka_v = sum(1 for ka in child['Keep_Apart'] if ka in names) + sum(1 for m in group if child['Name'] in m['Keep_Apart'])
                 score -= (ka_v * 10000)
-                
-                if child['SEND']: 
-                    score -= (sum(1 for p in group if p['SEND']) * 500)
-                
-                # Social balancing
-                fav_v = sum(1 for f in child['Favorites'] if f in names) + \
-                        sum(1 for m in group if child['Name'] in m['Favorites'])
-                
-                if fav_v <= max_favs_per_group:
-                    score += (fav_v * 100)
-                else:
-                    score -= 1000 # Heavy penalty for exceeding clique control
-                
-                score -= (len(group) * 20) # Keep groups equal size
-                
-                if score > best_score:
-                    best_score = score
-                    best_idx = idx
+                if child['SEND']: score -= (sum(1 for p in group if p['SEND']) * 500)
+                score -= (len(group) * 100) # Stronger balance penalty
+                if score > best_score: best_score, best_idx = score, idx
             
-            # Fallback: if best_idx is still -1, force them into the smallest group
-            if best_idx == -1:
-                best_idx = min(range(num_groups), key=lambda i: len(groups[i]))
-                
-            groups[best_idx].append(child)
+            if best_idx != -1: groups[best_idx].append(child)
+            else: groups[min(range(num_groups), key=lambda i: len(groups[i]))].append(child)
 
         st.session_state.final_groups = groups
         st.session_state.group_names = {i: f"Group {i+1}" for i in range(num_groups)}
@@ -264,13 +239,17 @@ if 'final_groups' in st.session_state:
         num_groups = len(st.session_state.final_groups)
         max_rows = max([len(g) for g in st.session_state.final_groups], default=0)
         
-        # Build Table Data
+       # Build Table Data
         table_data = [[st.session_state.group_names.get(i, f"Group {i+1}") for i in range(num_groups)]]
         for r in range(max_rows):
             row = []
             for g in st.session_state.final_groups:
-                p = g[r]
-                row.append(f"{p['Name']} ({p['Gender']}{'/' + 'S' if p['SEND'] else ''})") if r < len(g) else row.append("")
+                # Add the safety check: 'if r < len(g)'
+                if r < len(g):
+                    p = g[r]
+                    row.append(f"{p['Name']} ({p['Gender']}{'/' + 'S' if p['SEND'] else ''})")
+                else:
+                    row.append("") # Add an empty cell if the group has no pupil at this row
             table_data.append(row)
         
         # Add Totals Row
